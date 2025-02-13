@@ -18,7 +18,7 @@ The two most important packages are `linkml` and `linkml-runtime`
     - this documentation
 * [linkml-runtime](https://github.com/linkml/linkml-runtime)
     - code needed by linkml python object models
-    - utility code such as [schemaview](developers/manipulating-schemas)
+    - utility code such as [schemaview](/developers/manipulating-schemas)
     - includes metamodel (linkml_runtime.linkml_model)
 
 If you are using LinkML in a Python environment, then as a general rule
@@ -64,7 +64,7 @@ the core package on schema-automator
 
 ## Additional packages
 
-* [linkml-data-ops](https://github.com/linkml/linkml-dataops) **NEW**
+* [linkml-dataops](https://github.com/linkml/linkml-dataops)
   - extension to runtime to provide:
      - a change/patch API over data
      - a query API over data

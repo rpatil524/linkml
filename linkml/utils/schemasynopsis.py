@@ -1,24 +1,27 @@
-import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Set, Union, cast
+from typing import Dict, List, Set, Union
 
-from linkml_runtime.linkml_model.meta import (ClassDefinition,
-                                              ClassDefinitionName, Definition,
-                                              DefinitionName, Element,
-                                              ElementName, EnumDefinition,
-                                              EnumDefinitionName,
-                                              SchemaDefinition, SlotDefinition,
-                                              SlotDefinitionName,
-                                              SubsetDefinitionName,
-                                              TypeDefinition,
-                                              TypeDefinitionName)
+from linkml_runtime.linkml_model.meta import (
+    ClassDefinition,
+    ClassDefinitionName,
+    Definition,
+    DefinitionName,
+    Element,
+    ElementName,
+    EnumDefinition,
+    EnumDefinitionName,
+    SchemaDefinition,
+    SlotDefinition,
+    SlotDefinitionName,
+    SubsetDefinitionName,
+    TypeDefinition,
+    TypeDefinitionName,
+)
 from linkml_runtime.utils.metamodelcore import empty_dict
 from linkml_runtime.utils.yamlutils import TypedNode
 from rdflib import URIRef
 
-from linkml.utils.typereferences import (ClassType, EnumType, References,
-                                         RefType, SlotType, SubsetType,
-                                         TypeType)
+from linkml.utils.typereferences import ClassType, EnumType, References, RefType, SlotType, SubsetType, TypeType
 
 
 def empty_references() -> field:
@@ -33,78 +36,42 @@ class SchemaSynopsis:
     schema: SchemaDefinition = field(repr=False, compare=False)
 
     # References by type -- set by add_ref
-    typerefs: Dict[
-        TypeDefinitionName, References
-    ] = empty_dict()  # Type name to all references
-    slotrefs: Dict[
-        SlotDefinitionName, References
-    ] = empty_dict()  # Slot name to all references
-    classrefs: Dict[
-        ClassDefinitionName, References
-    ] = empty_dict()  # Class name to all references
-    subsetrefs: Dict[
-        SubsetDefinitionName, References
-    ] = empty_dict()  # Subset name to references
-    enumrefs: Dict[
-        EnumDefinitionName, References
-    ] = empty_dict()  # Enum name to references
+    typerefs: Dict[TypeDefinitionName, References] = empty_dict()  # Type name to all references
+    slotrefs: Dict[SlotDefinitionName, References] = empty_dict()  # Slot name to all references
+    classrefs: Dict[ClassDefinitionName, References] = empty_dict()  # Class name to all references
+    subsetrefs: Dict[SubsetDefinitionName, References] = empty_dict()  # Subset name to references
+    enumrefs: Dict[EnumDefinitionName, References] = empty_dict()  # Enum name to references
 
     # Type specific
-    typebases: Dict[
-        str, Set[TypeDefinitionName]
-    ] = empty_dict()  # Base referencing types (direct and indirect)
-    typeofs: Dict[
-        TypeDefinitionName, TypeDefinitionName
-    ] = empty_dict()  # Type to specializations
+    typebases: Dict[str, Set[TypeDefinitionName]] = empty_dict()  # Base referencing types (direct and indirect)
+    typeofs: Dict[TypeDefinitionName, TypeDefinitionName] = empty_dict()  # Type to specializations
 
     # Slot specific
-    slotclasses: Dict[
-        SlotDefinitionName, Set[ClassDefinitionName]
-    ] = empty_dict()  # Slot to including classes
-    definingslots: Dict[
-        SlotDefinitionName, Set[ClassDefinitionName]
-    ] = empty_dict()  # Slot to defining decls
-    slotusages: Dict[
-        SlotDefinitionName, Set[ClassDefinitionName]
-    ] = empty_dict()  # Slot to overriding classes
-    owners: Dict[
-        SlotDefinitionName, Set[ClassDefinitionName]
-    ] = empty_dict()  # Slot to owning classes (sb. 1)
-    inverses: Dict[
-        str, Set[str]
-    ] = empty_dict()  # Slots declared as inverses of other slots
+    slotclasses: Dict[SlotDefinitionName, Set[ClassDefinitionName]] = empty_dict()  # Slot to including classes
+    definingslots: Dict[SlotDefinitionName, Set[ClassDefinitionName]] = empty_dict()  # Slot to defining decls
+    slotusages: Dict[SlotDefinitionName, Set[ClassDefinitionName]] = empty_dict()  # Slot to overriding classes
+    owners: Dict[SlotDefinitionName, Set[ClassDefinitionName]] = empty_dict()  # Slot to owning classes (sb. 1)
+    inverses: Dict[str, Set[str]] = empty_dict()  # Slots declared as inverses of other slots
 
     # Class specific
-    ownslots: Dict[
-        ClassDefinitionName, Set[SlotDefinitionName]
-    ] = empty_dict()  # Slots directly owned by class
+    ownslots: Dict[ClassDefinitionName, Set[SlotDefinitionName]] = empty_dict()  # Slots directly owned by class
 
     # Enum specific
-    codesets: Dict[
-        URIRef, Set[EnumDefinitionName]
-    ] = empty_dict()  # Code set URI to enumeration definition
+    codesets: Dict[URIRef, Set[EnumDefinitionName]] = empty_dict()  # Code set URI to enumeration definition
 
     # Class to slot domains == class.slots
 
     # Slot or Class (Definition) specific
     roots: References = empty_references()  # Definitions with no parents
-    isarefs: Dict[
-        DefinitionName, References
-    ] = empty_dict()  # Definition to isa references
-    mixinrefs: Dict[
-        DefinitionName, References
-    ] = empty_dict()  # Mixin to referencing classes or slots
+    isarefs: Dict[DefinitionName, References] = empty_dict()  # Definition to isa references
+    mixinrefs: Dict[DefinitionName, References] = empty_dict()  # Mixin to referencing classes or slots
     mixins: References = empty_references()  # Definitions declared as mixin
     abstracts: References = empty_references()  # Definitions declared as abstract
     applytos: References = empty_references()  # Definitions that include applytos
-    applytorefs: Dict[
-        DefinitionName, References
-    ] = empty_dict()  # Definition to applyier
+    applytorefs: Dict[DefinitionName, References] = empty_dict()  # Definition to applyier
 
     # Slot or Type specific
-    rangerefs: Dict[
-        ElementName, Set[SlotDefinitionName]
-    ] = empty_dict()  # Type or class to range slot
+    rangerefs: Dict[ElementName, Set[SlotDefinitionName]] = empty_dict()  # Type or class to range slot
 
     # Element - any type
     inschema: Dict[str, References] = empty_references()  # Schema name to elements
@@ -131,9 +98,7 @@ class SchemaSynopsis:
             for slotname in owned_slots:
                 self.owners.setdefault(slotname, set()).add(cls.name)
 
-    def summarize_slot_definition(
-        self, k: SlotDefinitionName, v: SlotDefinition
-    ) -> None:
+    def summarize_slot_definition(self, k: SlotDefinitionName, v: SlotDefinition) -> None:
         """
         Summarize a slot definition
         :param k: slot name
@@ -147,13 +112,11 @@ class SchemaSynopsis:
         self.add_ref(
             SlotType,
             k,
-            ClassType
-            if v.range in self.schema.classes
-            else EnumType
-            if v.range in self.schema.enums
-            else TypeType
-            if v.range in self.schema.types
-            else None,
+            (
+                ClassType
+                if v.range in self.schema.classes
+                else EnumType if v.range in self.schema.enums else TypeType if v.range in self.schema.types else None
+            ),
             v.range,
         )
 
@@ -172,9 +135,7 @@ class SchemaSynopsis:
         if v.base:
             self.typebases.setdefault(v.base, set()).add(k)
 
-    def summarize_class_definition(
-        self, k: ClassDefinitionName, v: ClassDefinition
-    ) -> None:
+    def summarize_class_definition(self, k: ClassDefinitionName, v: ClassDefinition) -> None:
         """
         Summarize class definition element
 
@@ -203,9 +164,7 @@ class SchemaSynopsis:
         """
         self.summarize_element(EnumType, k, v)
 
-    def summarize_definition(
-        self, typ: RefType, k: DefinitionName, v: Definition
-    ) -> None:
+    def summarize_definition(self, typ: RefType, k: DefinitionName, v: Definition) -> None:
         """
         Summarize slot and class definitions
 
@@ -243,9 +202,7 @@ class SchemaSynopsis:
         :return:
         """
         if k != v.name:
-            raise ValueError(
-                "{typ} name mismatch: {k} != {v.name}"
-            )  # should never happen
+            raise ValueError("{typ} name mismatch: {k} != {v.name}")  # should never happen
         for subset in v.in_subset:
             self.add_ref(typ, k, SubsetType, subset)
 
@@ -265,33 +222,20 @@ class SchemaSynopsis:
         :return:
         """
         if totype is ClassType:
-            self.classrefs.setdefault(ClassDefinitionName(toname), References()).addref(
-                fromtype, fromname
-            )
+            self.classrefs.setdefault(ClassDefinitionName(toname), References()).addref(fromtype, fromname)
         elif totype is SlotType:
-            self.slotrefs.setdefault(SlotDefinitionName(toname), References()).addref(
-                fromtype, fromname
-            )
+            self.slotrefs.setdefault(SlotDefinitionName(toname), References()).addref(fromtype, fromname)
         elif totype is TypeType:
-            self.typerefs.setdefault(TypeDefinitionName(toname), References()).addref(
-                fromtype, fromname
-            )
+            self.typerefs.setdefault(TypeDefinitionName(toname), References()).addref(fromtype, fromname)
         elif totype is SubsetType:
-            self.subsetrefs.setdefault(
-                SubsetDefinitionName(toname), References()
-            ).addref(fromtype, fromname)
+            self.subsetrefs.setdefault(SubsetDefinitionName(toname), References()).addref(fromtype, fromname)
         elif totype is EnumType:
-            self.enumrefs.setdefault(SlotDefinitionName(toname), References()).addref(
-                fromtype, fromname
-            )
+            self.enumrefs.setdefault(SlotDefinitionName(toname), References()).addref(fromtype, fromname)
         else:
             raise TypeError("Unknown typ: {typ}")
 
     def _ancestor_is_owned(self, slot: SlotDefinition) -> bool:
-        return bool(slot.is_a) and (
-            slot.is_a in self.owners
-            or self._ancestor_is_owned(self.schema.slots[slot.is_a])
-        )
+        return bool(slot.is_a) and (slot.is_a in self.owners or self._ancestor_is_owned(self.schema.slots[slot.is_a]))
 
     def errors(self) -> List[str]:
         def format_undefineds(refs: Set[Union[str, TypedNode]]) -> List[str]:
@@ -300,44 +244,25 @@ class SchemaSynopsis:
         rval = []
         undefined_classes = set(self.classrefs.keys()) - set(self.schema.classes.keys())
         if undefined_classes:
-            rval += [
-                f"\tUndefined class references: "
-                f"{', '.join(format_undefineds(undefined_classes))}"
-            ]
+            rval += [f"\tUndefined class references: " f"{', '.join(format_undefineds(undefined_classes))}"]
         undefined_slots = set(self.slotrefs.keys()) - set(self.schema.slots.keys())
         if undefined_slots:
-            rval += [
-                f"\tUndefined slot references: "
-                f"{', '.join(format_undefineds(undefined_slots))}"
-            ]
+            rval += [f"\tUndefined slot references: " f"{', '.join(format_undefineds(undefined_slots))}"]
         undefined_types = set(self.typerefs.keys()) - set(self.schema.types.keys())
         if undefined_types:
-            rval += [
-                f"\tUndefined type references: "
-                f"{', '.join(format_undefineds(undefined_types))}"
-            ]
-        undefined_subsets = set(self.subsetrefs.keys()) - set(
-            self.schema.subsets.keys()
-        )
+            rval += [f"\tUndefined type references: " f"{', '.join(format_undefineds(undefined_types))}"]
+        undefined_subsets = set(self.subsetrefs.keys()) - set(self.schema.subsets.keys())
         if undefined_subsets:
-            rval += [
-                f"\tUndefined subset references: "
-                f"{', '.join(format_undefineds(undefined_subsets))}"
-            ]
+            rval += [f"\tUndefined subset references: " f"{', '.join(format_undefineds(undefined_subsets))}"]
         undefined_enums = set(self.enumrefs.keys()) - set(self.schema.enums.keys())
         if undefined_enums:
-            rval += [
-                f"\tUndefined enun references: "
-                f"{', '.join(format_undefineds(undefined_enums))}"
-            ]
+            rval += [f"\tUndefined enun references: " f"{', '.join(format_undefineds(undefined_enums))}"]
 
         # Inlined slots must be multivalued (not a inviolable rule, but we make assumptions about this elsewhere in
         # the python generator
         for slot in self.schema.slots.values():
             if slot.inlined and not slot.multivalued and slot.identifier:
-                rval += [
-                    f"\t{TypedNode.yaml_loc(slot.name)} Slot {slot.name} is declared inline but single valued"
-                ]
+                rval += [f"\t{TypedNode.yaml_loc(slot.name)} Slot {slot.name} is declared inline but single valued"]
         return rval
 
     def summary(self) -> str:
@@ -416,9 +341,7 @@ class SchemaSynopsis:
                     else:
                         unowned_slots.add(slotname)
         if n_unreferenced_descendants:
-            rval += [
-                f"\tUnreferenced descendants of owned slots: {n_unreferenced_descendants}"
-            ]
+            rval += [f"\tUnreferenced descendants of owned slots: {n_unreferenced_descendants}"]
         if unowned_slots:
             rval += [f"\t* Unowned slots: {', '.join(sorted(unowned_slots))}"]
 
@@ -473,9 +396,7 @@ class SchemaSynopsis:
         if unknowns:
             rval += ["\t\tUnknown:"] + unknowns
 
-        shared_class_slots = set(self.schema.classes.keys()).intersection(
-            set(self.schema.slots.keys())
-        )
+        shared_class_slots = set(self.schema.classes.keys()).intersection(set(self.schema.slots.keys()))
         if shared_class_slots:
             rval += ["\nClasses and Slots with the same name:"]
             for ssc in sorted(shared_class_slots):

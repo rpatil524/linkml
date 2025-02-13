@@ -1,14 +1,13 @@
 import copy
 from datetime import datetime
+from pathlib import Path
 from typing import Optional, TextIO, Union
 from urllib.parse import urlparse
 
 import yaml
 from dateutil.parser import ParserError, parse
 from hbreader import FileInfo, HBType, detect_type
-from linkml_runtime.linkml_model.meta import (ClassDefinition,
-                                              SchemaDefinition, SlotDefinition,
-                                              metamodel_version)
+from linkml_runtime.linkml_model.meta import SchemaDefinition, metamodel_version
 from linkml_runtime.loaders import yaml_loader
 from linkml_runtime.utils.yamlutils import YAMLMark, YAMLRoot
 
@@ -31,7 +30,7 @@ SchemaDefinition.MissingRequiredField = mrf
 
 
 def load_raw_schema(
-    data: Union[str, dict, TextIO],
+    data: Union[str, dict, TextIO, Path],
     source_file: Optional[str] = None,
     source_file_date: Optional[str] = None,
     source_file_size: Optional[int] = None,
@@ -56,15 +55,12 @@ def load_raw_schema(
 
     # Passing a URL or file name
     if detect_type(data, base_dir) not in (HBType.STRING, HBType.STRINGABLE):
-        assert (
-            source_file is None
-        ), "source_file parameter not allowed if data is a file or URL"
-        assert (
-            source_file_date is None
-        ), "source_file_date parameter not allowed if data is a file or URL"
-        assert (
-            source_file_size is None
-        ), "source_file_size parameter not allowed if data is a file or URL"
+        assert source_file is None, "source_file parameter not allowed if data is a file or URL"
+        assert source_file_date is None, "source_file_date parameter not allowed if data is a file or URL"
+        assert source_file_size is None, "source_file_size parameter not allowed if data is a file or URL"
+
+    if isinstance(data, Path):
+        data = str(data)
 
     # Convert the input into a valid SchemaDefinition
     if isinstance(data, (str, dict, TextIO)):
@@ -101,9 +97,7 @@ def load_raw_schema(
         schema.source_file = schema_metadata.source_file
         src_date = schema_metadata.source_file_date
         try:
-            schema.source_file_date = (
-                parse(src_date).strftime(DATETIME_FORMAT) if src_date else None
-            )
+            schema.source_file_date = parse(src_date).strftime(DATETIME_FORMAT) if src_date else None
         except ParserError:
             schema.source_file_date = src_date
         schema.source_file_size = schema_metadata.source_file_size

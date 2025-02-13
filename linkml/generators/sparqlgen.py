@@ -3,22 +3,18 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, TextIO, Union, cast
+from typing import Dict, List, Optional
 
 import click
 from jinja2 import Template
-from linkml_runtime.linkml_model.meta import (ClassDefinition,
-                                              ClassDefinitionName, Element,
-                                              EnumDefinitionName, Prefix,
-                                              SchemaDefinition, SlotDefinition,
-                                              SlotDefinitionName,
-                                              TypeDefinition,
-                                              TypeDefinitionName)
-from linkml_runtime.utils.formatutils import camelcase, underscore
+from linkml_runtime.linkml_model.meta import Prefix
+from linkml_runtime.utils.formatutils import underscore
 from linkml_runtime.utils.schemaview import SchemaView
 
 from linkml._version import __version__
 from linkml.utils.generator import Generator, shared_arguments
+
+logger = logging.getLogger(__name__)
 
 template = """
 {% for pfxn, pfx in schema.prefixes.items() -%}
@@ -65,7 +61,7 @@ SELECT
 }  {{ limit }}
 {% endif %}
 
-{% if slot.range in schema_view.all_class() %}
+{% if slot.range in schema_view.all_classes() %}
 # @CHECK object_range_{{cn}}_{{slot.name}}
 SELECT
   ?check
@@ -109,20 +105,18 @@ x = """
 def materialize_schema(schemaview: SchemaView):
     schema = schemaview.schema
     if "rdf" not in schema.prefixes:
-        schema.prefixes["rdf"] = Prefix(
-            "rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-        )
+        schema.prefixes["rdf"] = Prefix("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
     for scn in schemaview.imports_closure():
         for pfxn, pfx in schemaview.schema_map[scn].prefixes.items():
             if pfxn not in schema:
                 schema.prefixes[pfxn] = pfx
-    for cn, c in schemaview.all_class().items():
+    for cn, c in schemaview.all_classes().items():
         for a in list(c.attributes.values()):
             schema.slots[a.name] = a
             c.slots.append(a.name)
             del c.attributes[a.name]
     schemaview.set_modified()
-    for cn, c in schemaview.all_class().items():
+    for cn, c in schemaview.all_classes().items():
         for s in schemaview.class_induced_slots(cn):
             if s.name not in c.slots:
                 c.slots.append(s.name)
@@ -158,14 +152,12 @@ class SparqlGenerator(Generator):
         extra = ""
         if named_graphs is not None:
             extra += f'FILTER( ?graph in ( {",".join(named_graphs)} ))'
-        logging.info(f"Named Graphs = {named_graphs} // extra={extra}")
+        logger.info(f"Named Graphs = {named_graphs} // extra={extra}")
         if limit is not None and isinstance(limit, int):
             limit = f"LIMIT {limit}"
         else:
             limit = ""
-        sparql = template_obj.render(
-            schema_view=self.schemaview, schema=self.schema, limit=limit, extra=extra
-        )
+        sparql = template_obj.render(schema_view=self.schemaview, schema=self.schema, limit=limit, extra=extra)
         self.sparql = sparql
         queries = self.split_sparql(sparql)
         return queries
@@ -179,7 +171,8 @@ class SparqlGenerator(Generator):
                     stream.write(q)
         return self.sparql
 
-    def split_sparql(self, sparql: str) -> Dict[str, str]:
+    @staticmethod
+    def split_sparql(sparql: str) -> Dict[str, str]:
         lines = sparql.split("\n")
         prolog = ""
         queries = defaultdict(str)
@@ -197,7 +190,7 @@ class SparqlGenerator(Generator):
 
 
 @shared_arguments(SparqlGenerator)
-@click.command()
+@click.command(name="sparql")
 @click.option("--dir", "-d", help="Directory in which queries will be deposited")
 @click.version_option(__version__, "-V", "--version")
 def cli(yamlfile, dir, **kwargs):

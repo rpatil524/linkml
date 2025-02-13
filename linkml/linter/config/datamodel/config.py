@@ -7,26 +7,18 @@
 # license: https://creativecommons.org/publicdomain/zero/1.0/
 
 import dataclasses
-import re
-import sys
 from dataclasses import dataclass
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
-from jsonasobj2 import JsonObj, as_dict
-from linkml_runtime.linkml_model.meta import (EnumDefinition, PermissibleValue,
-                                              PvFormulaOptions)
-from linkml_runtime.linkml_model.types import Boolean, String
+from jsonasobj2 import as_dict
+from linkml_runtime.linkml_model.meta import EnumDefinition, PermissibleValue
 from linkml_runtime.utils.curienamespace import CurieNamespace
-from linkml_runtime.utils.dataclass_extensions_376 import \
-    dataclasses_init_fn_with_kwargs
+from linkml_runtime.utils.dataclass_extensions_376 import dataclasses_init_fn_with_kwargs
 from linkml_runtime.utils.enumerations import EnumDefinitionImpl
-from linkml_runtime.utils.formatutils import camelcase, sfx, underscore
-from linkml_runtime.utils.metamodelcore import (Bool, bnode, empty_dict,
-                                                empty_list)
+from linkml_runtime.utils.metamodelcore import Bool, empty_list
 from linkml_runtime.utils.slot import Slot
-from linkml_runtime.utils.yamlutils import (YAMLRoot, extended_float,
-                                            extended_int, extended_str)
-from rdflib import Namespace, URIRef
+from linkml_runtime.utils.yamlutils import YAMLRoot
+from rdflib import URIRef
 
 metamodel_version = "1.7.0"
 version = None
@@ -82,9 +74,7 @@ class Rules(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = LINTCFG.Rules
 
     no_empty_title: Optional[Union[dict, "RuleConfig"]] = None
-    permissible_values_format: Optional[
-        Union[dict, "PermissibleValuesFormatRuleConfig"]
-    ] = None
+    permissible_values_format: Optional[Union[dict, "PermissibleValuesFormatRuleConfig"]] = None
     tree_root_class: Optional[Union[dict, "TreeRootClassRuleConfig"]] = None
     recommended: Optional[Union[dict, "RecommendedRuleConfig"]] = None
     no_xsd_int_type: Optional[Union[dict, "RuleConfig"]] = None
@@ -93,9 +83,7 @@ class Rules(YAMLRoot):
     canonical_prefixes: Optional[Union[dict, "CanonicalPrefixesConfig"]] = None
 
     def __post_init__(self, *_: List[str], **kwargs: Dict[str, Any]):
-        if self.no_empty_title is not None and not isinstance(
-            self.no_empty_title, RuleConfig
-        ):
+        if self.no_empty_title is not None and not isinstance(self.no_empty_title, RuleConfig):
             self.no_empty_title = RuleConfig(**as_dict(self.no_empty_title))
 
         if self.permissible_values_format is not None and not isinstance(
@@ -105,41 +93,23 @@ class Rules(YAMLRoot):
                 **as_dict(self.permissible_values_format)
             )
 
-        if self.tree_root_class is not None and not isinstance(
-            self.tree_root_class, TreeRootClassRuleConfig
-        ):
-            self.tree_root_class = TreeRootClassRuleConfig(
-                **as_dict(self.tree_root_class)
-            )
+        if self.tree_root_class is not None and not isinstance(self.tree_root_class, TreeRootClassRuleConfig):
+            self.tree_root_class = TreeRootClassRuleConfig(**as_dict(self.tree_root_class))
 
-        if self.recommended is not None and not isinstance(
-            self.recommended, RecommendedRuleConfig
-        ):
+        if self.recommended is not None and not isinstance(self.recommended, RecommendedRuleConfig):
             self.recommended = RecommendedRuleConfig(**as_dict(self.recommended))
 
-        if self.no_xsd_int_type is not None and not isinstance(
-            self.no_xsd_int_type, RuleConfig
-        ):
+        if self.no_xsd_int_type is not None and not isinstance(self.no_xsd_int_type, RuleConfig):
             self.no_xsd_int_type = RuleConfig(**as_dict(self.no_xsd_int_type))
 
-        if self.no_invalid_slot_usage is not None and not isinstance(
-            self.no_invalid_slot_usage, RuleConfig
-        ):
-            self.no_invalid_slot_usage = RuleConfig(
-                **as_dict(self.no_invalid_slot_usage)
-            )
+        if self.no_invalid_slot_usage is not None and not isinstance(self.no_invalid_slot_usage, RuleConfig):
+            self.no_invalid_slot_usage = RuleConfig(**as_dict(self.no_invalid_slot_usage))
 
-        if self.standard_naming is not None and not isinstance(
-            self.standard_naming, StandardNamingConfig
-        ):
+        if self.standard_naming is not None and not isinstance(self.standard_naming, StandardNamingConfig):
             self.standard_naming = StandardNamingConfig(**as_dict(self.standard_naming))
 
-        if self.canonical_prefixes is not None and not isinstance(
-            self.canonical_prefixes, CanonicalPrefixesConfig
-        ):
-            self.canonical_prefixes = CanonicalPrefixesConfig(
-                **as_dict(self.canonical_prefixes)
-            )
+        if self.canonical_prefixes is not None and not isinstance(self.canonical_prefixes, CanonicalPrefixesConfig):
+            self.canonical_prefixes = CanonicalPrefixesConfig(**as_dict(self.canonical_prefixes))
 
         super().__post_init__(**kwargs)
 
@@ -209,14 +179,10 @@ class TreeRootClassRuleConfig(RuleConfig):
     validate_existing_class_name: Optional[Union[bool, Bool]] = None
 
     def __post_init__(self, *_: List[str], **kwargs: Dict[str, Any]):
-        if self.root_class_name is not None and not isinstance(
-            self.root_class_name, str
-        ):
+        if self.root_class_name is not None and not isinstance(self.root_class_name, str):
             self.root_class_name = str(self.root_class_name)
 
-        if self.validate_existing_class_name is not None and not isinstance(
-            self.validate_existing_class_name, Bool
-        ):
+        if self.validate_existing_class_name is not None and not isinstance(self.validate_existing_class_name, Bool):
             self.validate_existing_class_name = Bool(self.validate_existing_class_name)
 
         super().__post_init__(**kwargs)
@@ -266,14 +232,18 @@ class StandardNamingConfig(RuleConfig):
 
     level: Union[str, "RuleLevel"] = None
     permissible_values_upper_case: Optional[Union[bool, Bool]] = None
+    slot_pattern: Optional[str] = None
+    class_pattern: Optional[str] = None
 
     def __post_init__(self, *_: List[str], **kwargs: Dict[str, Any]):
-        if self.permissible_values_upper_case is not None and not isinstance(
-            self.permissible_values_upper_case, Bool
-        ):
-            self.permissible_values_upper_case = Bool(
-                self.permissible_values_upper_case
-            )
+        if self.permissible_values_upper_case is not None and not isinstance(self.permissible_values_upper_case, Bool):
+            self.permissible_values_upper_case = Bool(self.permissible_values_upper_case)
+
+        if self.class_pattern is not None and not isinstance(self.class_pattern, str):
+            self.class_pattern = str(self.class_pattern)
+
+        if self.slot_pattern is not None and not isinstance(self.slot_pattern, str):
+            self.slot_pattern = str(self.slot_pattern)
 
         super().__post_init__(**kwargs)
 
@@ -296,14 +266,8 @@ class CanonicalPrefixesConfig(RuleConfig):
 
     def __post_init__(self, *_: List[str], **kwargs: Dict[str, Any]):
         if not isinstance(self.prefixmaps_contexts, list):
-            self.prefixmaps_contexts = (
-                [self.prefixmaps_contexts]
-                if self.prefixmaps_contexts is not None
-                else []
-            )
-        self.prefixmaps_contexts = [
-            v if isinstance(v, str) else str(v) for v in self.prefixmaps_contexts
-        ]
+            self.prefixmaps_contexts = [self.prefixmaps_contexts] if self.prefixmaps_contexts is not None else []
+        self.prefixmaps_contexts = [v if isinstance(v, str) else str(v) for v in self.prefixmaps_contexts]
 
         super().__post_init__(**kwargs)
 
@@ -314,9 +278,7 @@ class ExtendableConfigs(EnumDefinitionImpl):
     The permissible values for the `extends` field of a config file
     """
 
-    recommended = PermissibleValue(
-        text="recommended", description="Extend the recommended rule set"
-    )
+    recommended = PermissibleValue(text="recommended", description="Extend the recommended rule set")
 
     _defn = EnumDefinition(
         name="ExtendableConfigs",
@@ -329,9 +291,7 @@ class RuleLevel(EnumDefinitionImpl):
     The permissible values for the `level` option of all rules
     """
 
-    disabled = PermissibleValue(
-        text="disabled", description="The rule will not be checked"
-    )
+    disabled = PermissibleValue(text="disabled", description="The rule will not be checked")
     warning = PermissibleValue(
         text="warning",
         description="A violation of a rule at this level is a minor issue that should be fixed",

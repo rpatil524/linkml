@@ -7,27 +7,18 @@
 # license: https://creativecommons.org/publicdomain/zero/1.0/
 
 import dataclasses
-import re
-import sys
 from dataclasses import dataclass
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
-from jsonasobj2 import JsonObj, as_dict
-from linkml_runtime.linkml_model.meta import (EnumDefinition, PermissibleValue,
-                                              PvFormulaOptions)
-from linkml_runtime.linkml_model.types import (Nodeidentifier, String,
-                                               Uriorcurie)
+from jsonasobj2 import as_dict
+from linkml_runtime.linkml_model.meta import EnumDefinition, PermissibleValue
 from linkml_runtime.utils.curienamespace import CurieNamespace
-from linkml_runtime.utils.dataclass_extensions_376 import \
-    dataclasses_init_fn_with_kwargs
+from linkml_runtime.utils.dataclass_extensions_376 import dataclasses_init_fn_with_kwargs
 from linkml_runtime.utils.enumerations import EnumDefinitionImpl
-from linkml_runtime.utils.formatutils import camelcase, sfx, underscore
-from linkml_runtime.utils.metamodelcore import (NodeIdentifier, URIorCURIE,
-                                                bnode, empty_dict, empty_list)
+from linkml_runtime.utils.metamodelcore import NodeIdentifier, URIorCURIE, empty_list
 from linkml_runtime.utils.slot import Slot
-from linkml_runtime.utils.yamlutils import (YAMLRoot, extended_float,
-                                            extended_int, extended_str)
-from rdflib import Namespace, URIRef
+from linkml_runtime.utils.yamlutils import YAMLRoot
+from rdflib import URIRef
 
 metamodel_version = "1.7.0"
 
@@ -65,17 +56,12 @@ class Report(YAMLRoot):
     class_name: ClassVar[str] = "report"
     class_model_uri: ClassVar[URIRef] = REPORTING.Report
 
-    results: Optional[
-        Union[Union[dict, "CheckResult"], List[Union[dict, "CheckResult"]]]
-    ] = empty_list()
+    results: Optional[Union[Union[dict, "CheckResult"], List[Union[dict, "CheckResult"]]]] = empty_list()
 
     def __post_init__(self, *_: List[str], **kwargs: Dict[str, Any]):
         if not isinstance(self.results, list):
             self.results = [self.results] if self.results is not None else []
-        self.results = [
-            v if isinstance(v, CheckResult) else CheckResult(**as_dict(v))
-            for v in self.results
-        ]
+        self.results = [v if isinstance(v, CheckResult) else CheckResult(**as_dict(v)) for v in self.results]
 
         super().__post_init__(**kwargs)
 
@@ -109,14 +95,10 @@ class CheckResult(YAMLRoot):
         if self.subject is not None and not isinstance(self.subject, NodeIdentifier):
             self.subject = NodeIdentifier(self.subject)
 
-        if self.instantiates is not None and not isinstance(
-            self.instantiates, NodeIdentifier
-        ):
+        if self.instantiates is not None and not isinstance(self.instantiates, NodeIdentifier):
             self.instantiates = NodeIdentifier(self.instantiates)
 
-        if self.predicate is not None and not isinstance(
-            self.predicate, NodeIdentifier
-        ):
+        if self.predicate is not None and not isinstance(self.predicate, NodeIdentifier):
             self.predicate = NodeIdentifier(self.predicate)
 
         if self.object is not None and not isinstance(self.object, NodeIdentifier):
@@ -184,7 +166,6 @@ class ProblemSlotMissing(Problem):
 
 # Enumerations
 class SeverityOptions(EnumDefinitionImpl):
-
     FATAL = PermissibleValue(text="FATAL")
     ERROR = PermissibleValue(text="ERROR")
     WARNING = PermissibleValue(text="WARNING")

@@ -10,8 +10,13 @@ Some of these guides are works in progress
    :caption: Contents:
 
    linkml-project-cookiecutter
+   collaborative-development
+   recognize-structural-forms
    yq-for-schemas
    using-jsonld
    model-measurements
    port-linkml
+   multidimensional-arrays
+   generate-ai-prompts
+   deprecating-elements
 

@@ -14,21 +14,17 @@ def make_and_clear_directory(dirbase: str) -> None:
     safety_file = os.path.join(dirbase, "generated")
     if os.path.exists(dirbase):
         if not os.path.exists(safety_file):
-            raise FileNotFoundError(
-                "'generated' guard file not found in {}".format(safety_file)
-            )
+            raise FileNotFoundError("'generated' guard file not found in {}".format(safety_file))
         shutil.rmtree(dirbase)
     os.makedirs(dirbase)
     with open(os.path.join(dirbase, "generated"), "w") as f:
-        f.write(
-            "Generated for safety.  Directory will not be cleared if this file is not present"
-        )
+        f.write("Generated for safety.  Directory will not be cleared if this file is not present")
 
 
 def file_text(txt_or_fname: str) -> str:
     """
     Determine whether text_or_fname is a file name or a string and, if a file name, read it
-    :param text_or_fname:
+    :param txt_or_fname:
     :return:
     """
     if len(txt_or_fname) > 4 and "\n" not in txt_or_fname:
@@ -48,9 +44,7 @@ class dircmp(filecmp.dircmp):
         Find out differences between common files.
         Ensure we are using content comparison with shallow=False.
         """
-        fcomp = filecmp.cmpfiles(
-            self.left, self.right, self.common_files, shallow=False
-        )
+        fcomp = filecmp.cmpfiles(self.left, self.right, self.common_files, shallow=False)
         self.same_files, self.diff_files, self.funny_files = fcomp
 
     filecmp.dircmp.methodmap["same_files"] = phase3

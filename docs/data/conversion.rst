@@ -63,12 +63,11 @@ For example, if you have a schema:
 
 and a person object:
 
-.. code:: json
+.. code-block:: json
 
    {
-     ...
      "employed_at": {
-       ...
+       "...": "..."
      }
    }
 
@@ -98,29 +97,29 @@ Loading and dumping works in a similar fashion for RDF. One difference
 is that the schema must be present as this contains crucial information
 for being able to map classes and slots to URIs.
 
-See `RDF <rdf.md>`__ for more details
+See :doc:`RDF <rdf>` for more details
 
 Loading from and dumping to CSVs
 --------------------------------
 
-See `CSVs <./csvs.html>`__ for more details
+See :doc:`CSVs <./csvs>` for more details
 
 Inferring missing values
 ------------------------
 
 The ``--infer`` flag can be provided to perform missing value inference
 
-See `advanced schemas <../schemas/advanced.md>`__ for more information
+See :doc:`advanced schemas </schemas/advanced>` for more information
 on inference
 
 Programmatic usage
 ------------------
 
-See `developer docs <../code>`__ for documentation of the relevant
+See :doc:`developer docs </developers/index>` for documentation of the relevant
 python classes
 
 Command Line
--------
+------------
 
 .. currentmodule:: linkml.utils.converter
 

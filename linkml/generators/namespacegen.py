@@ -5,7 +5,6 @@ import click
 from linkml_runtime.utils.formatutils import be, split_line
 
 from linkml._version import __version__
-from linkml.generators import PYTHON_GEN_VERSION
 from linkml.generators.pythongen import PythonGenerator
 from linkml.utils.generator import shared_arguments
 
@@ -13,7 +12,7 @@ from linkml.utils.generator import shared_arguments
 @dataclass
 class NamespaceGenerator(PythonGenerator):
     generatorname = os.path.basename(__file__)
-    generatorversion = PYTHON_GEN_VERSION
+    generatorversion = "0.0.1"
     valid_formats = ["py"]
     visit_all_class_slots = False
 
@@ -27,9 +26,7 @@ class NamespaceGenerator(PythonGenerator):
         )
 
     def gen_schema(self) -> str:
-        split_descripton = "\n#              ".join(
-            split_line(be(self.schema.description), split_len=100)
-        )
+        split_descripton = "\n#              ".join(split_line(be(self.schema.description), split_len=100))
         head = (
             f"""# Auto generated from {self.schema.source_file} by {self.generatorname} version: {self.generatorversion}
 # Generation date: {self.schema.generation_date}
@@ -198,7 +195,7 @@ def curie(identifier) -> str:
 
 @shared_arguments(NamespaceGenerator)
 @click.version_option(__version__, "-V", "--version")
-@click.command()
+@click.command(name="namespaces")
 def cli(yamlfile, **args):
     """Generate a namespace manager for all of the prefixes represented in a LinkML model"""
     print(NamespaceGenerator(yamlfile, **args).serialize(**args))

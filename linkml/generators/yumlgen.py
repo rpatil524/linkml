@@ -3,20 +3,18 @@
 https://yuml.me/diagram/scruffy/class/samples
 
 """
-import logging
+
 import os
-from dataclasses import dataclass, field
-from typing import Callable, List, Optional, Set, TextIO, Union, cast
+from dataclasses import dataclass
+from typing import Callable, List, Optional, Set, cast
 
 import click
 import requests
-from linkml_runtime.linkml_model.meta import (ClassDefinition,
-                                              ClassDefinitionName,
-                                              SchemaDefinition, SlotDefinition)
+from linkml_runtime.linkml_model.meta import ClassDefinition, ClassDefinitionName, SlotDefinition
 from linkml_runtime.utils.formatutils import camelcase, underscore
 from rdflib import Namespace
 
-from linkml._version import __version__
+from linkml import REQUESTS_TIMEOUT
 from linkml.utils.generator import Generator, shared_arguments
 
 yuml_is_a = "^-"
@@ -41,33 +39,18 @@ class YumlGenerator(Generator):
     valid_formats = ["yuml", "png", "pdf", "jpg", "json", "svg"]
     visit_all_class_slots = False
 
-    referenced: Optional[
-        Set[ClassDefinitionName]
-    ] = None  # List of classes that have to be emitted
-    generated: Optional[
-        Set[ClassDefinitionName]
-    ] = None  # List of classes that have been emitted
-    box_generated: Optional[
-        Set[ClassDefinitionName]
-    ] = None  # Class boxes that have been emitted
-    associations_generated: Optional[
-        Set[ClassDefinitionName]
-    ] = None  # Classes with associations generated
-    focus_classes: Optional[
-        Set[ClassDefinitionName]
-    ] = None  # Classes to be completely filled
-    gen_classes: Optional[
-        Set[ClassDefinitionName]
-    ] = None  # Classes to be generated
-    output_file_name: Optional[
-        str
-    ] = None  # Location of output file if directory used
+    referenced: Optional[Set[ClassDefinitionName]] = None  # List of classes that have to be emitted
+    generated: Optional[Set[ClassDefinitionName]] = None  # List of classes that have been emitted
+    box_generated: Optional[Set[ClassDefinitionName]] = None  # Class boxes that have been emitted
+    associations_generated: Optional[Set[ClassDefinitionName]] = None  # Classes with associations generated
+    focus_classes: Optional[Set[ClassDefinitionName]] = None  # Classes to be completely filled
+    gen_classes: Optional[Set[ClassDefinitionName]] = None  # Classes to be generated
+    output_file_name: Optional[str] = None  # Location of output file if directory used
 
     classes: Set[ClassDefinitionName] = None
     directory: Optional[str] = None
     diagram_name: Optional[str] = None
-    load_image: bool = field(default_factory=lambda: True)
-
+    load_image: bool = True
 
     def visit_schema(
         self,
@@ -76,7 +59,7 @@ class YumlGenerator(Generator):
         diagram_name: Optional[str] = None,
         load_image: bool = True,
         **_,
-    ) -> None:
+    ) -> Optional[str]:
         if directory:
             os.makedirs(directory, exist_ok=True)
         if classes is not None:
@@ -94,22 +77,16 @@ class YumlGenerator(Generator):
         self.generated = set()
         yumlclassdef: List[str] = []
         while self.referenced.difference(self.generated):
-            cn = sorted(list(self.referenced.difference(self.generated)), reverse=True)[
-                0
-            ]
+            cn = sorted(list(self.referenced.difference(self.generated)), reverse=True)[0]
             self.generated.add(cn)
-            assocs = self.class_associations(
-                ClassDefinitionName(cn), cn in self.referenced
-            )
+            assocs = self.class_associations(ClassDefinitionName(cn), cn in self.referenced)
             if assocs:
                 yumlclassdef.append(assocs)
             else:
                 yumlclassdef.append(self.class_box(ClassDefinitionName(cn)))
 
         file_suffix = ".svg" if self.format == "yuml" else "." + self.format
-        file_name = diagram_name or camelcase(
-            sorted(classes)[0] if classes else self.schema.name
-        )
+        file_name = diagram_name or camelcase(sorted(classes)[0] if classes else self.schema.name)
         if directory:
             self.output_file_name = os.path.join(
                 directory,
@@ -118,18 +95,18 @@ class YumlGenerator(Generator):
             if load_image:
                 payload = "dsl_text=" + (",".join(yumlclassdef))
                 payload = payload.replace("%3F", "?").replace("%2B", "+")
-                url = f"https://yuml.me/diagram/plain/class/"
-                resp = requests.post(url, data=payload)
+                url = "https://yuml.me/diagram/plain/class/"
+                resp = requests.post(url, data=payload, timeout=REQUESTS_TIMEOUT)
                 if resp.ok:
                     filename = resp.text.strip().replace(".svg", file_suffix)
-                    resp = requests.get(f"https://yuml.me/{filename}", stream=True)
+                    resp = requests.get(f"https://yuml.me/{filename}", stream=True, timeout=REQUESTS_TIMEOUT)
                     with open(self.output_file_name, "wb") as f:
                         for chunk in resp.iter_content(chunk_size=2048):
                             f.write(chunk)
                 else:
                     self.logger.error(f"{resp.reason} accessing {url}: {resp!r}")
         else:
-            print(str(YUML) + ",".join(yumlclassdef), end="")
+            return str(YUML) + ",".join(yumlclassdef)
 
     def class_box(self, cn: ClassDefinitionName) -> str:
         """Generate a box for the class.  Populate its interior only if (a) it hasn't previously been generated and
@@ -139,13 +116,9 @@ class YumlGenerator(Generator):
         @return:
         """
         slot_defs: List[str] = []
-        if cn not in self.box_generated and (
-            not self.focus_classes or cn in self.focus_classes
-        ):
+        if cn not in self.box_generated and (not self.focus_classes or cn in self.focus_classes):
             cls = self.schema.classes[cn]
-            for slot in self.filtered_cls_slots(
-                cn, all_slots=True, filtr=lambda s: s.range not in self.schema.classes
-            ):
+            for slot in self.filtered_cls_slots(cn, all_slots=True, filtr=lambda s: s.range not in self.schema.classes):
                 if True or cn in slot.domain_of:
                     mod = self.prop_modifier(cls, slot)
                     slot_defs.append(
@@ -157,13 +130,9 @@ class YumlGenerator(Generator):
                     )
             self.box_generated.add(cn)
         self.referenced.add(cn)
-        return (
-            "[" + camelcase(cn) + ("|" + ";".join(slot_defs) if slot_defs else "") + "]"
-        )
+        return "[" + camelcase(cn) + ("|" + ";".join(slot_defs) if slot_defs else "") + "]"
 
-    def class_associations(
-        self, cn: ClassDefinitionName, must_render: bool = False
-    ) -> str:
+    def class_associations(self, cn: ClassDefinitionName, must_render: bool = False) -> str:
         """Emit all associations for a focus class.  If none are specified, all classes are generated
 
         @param cn: Name of class to be emitted
@@ -174,20 +143,13 @@ class YumlGenerator(Generator):
         # NOTE: YUML diagrams draw in the opposite order in which they are created, so we work from bottom to top and
         # from right to left
         assocs: List[str] = []
-        if cn not in self.associations_generated and (
-            not self.focus_classes or cn in self.focus_classes
-        ):
+        if cn not in self.associations_generated and (not self.focus_classes or cn in self.focus_classes):
             cls = self.schema.classes[cn]
 
             # Slots that reference other classes
-            for slot in self.filtered_cls_slots(
-                cn, False, lambda s: s.range in self.schema.classes
-            )[::-1]:
+            for slot in self.filtered_cls_slots(cn, False, lambda s: s.range in self.schema.classes)[::-1]:
                 # Swap the two boxes because, in the case of self reference, the last definition wins
-                if (
-                    not slot.range in self.associations_generated
-                    and cn in slot.domain_of
-                ):
+                if slot.range not in self.associations_generated and cn in slot.domain_of:
                     rhs = self.class_box(cn)
                     lhs = self.class_box(cast(ClassDefinitionName, slot.range))
                     assocs.append(
@@ -205,10 +167,7 @@ class YumlGenerator(Generator):
                 slot = self.schema.slots[slotname]
                 # Don't do self references twice
                 # Also, slot must be owned by the class
-                if (
-                    cls.name not in slot.domain_of
-                    and cls.name not in self.associations_generated
-                ):
+                if cls.name not in slot.domain_of and cls.name not in self.associations_generated:
                     for dom in [self.schema.classes[dof] for dof in slot.domain_of]:
                         assocs.append(
                             self.class_box(dom.name)
@@ -226,37 +185,19 @@ class YumlGenerator(Generator):
 
             # Classes that use the class as a mixin
             if cls.name in self.synopsis.mixinrefs:
-                for mixin in sorted(
-                    self.synopsis.mixinrefs[cls.name].classrefs, reverse=True
-                ):
-                    assocs.append(
-                        self.class_box(ClassDefinitionName(mixin))
-                        + yuml_uses
-                        + self.class_box(cn)
-                    )
+                for mixin in sorted(self.synopsis.mixinrefs[cls.name].classrefs, reverse=True):
+                    assocs.append(self.class_box(ClassDefinitionName(mixin)) + yuml_uses + self.class_box(cn))
 
             # Classes that inject information
             if cn in self.synopsis.applytos.classrefs:
-                for injector in sorted(
-                    self.synopsis.applytorefs[cn].classrefs, reverse=True
-                ):
-                    assocs.append(
-                        self.class_box(cn)
-                        + yuml_injected
-                        + self.class_box(ClassDefinitionName(injector))
-                    )
+                for injector in sorted(self.synopsis.applytorefs[cn].classrefs, reverse=True):
+                    assocs.append(self.class_box(cn) + yuml_injected + self.class_box(ClassDefinitionName(injector)))
             self.associations_generated.add(cn)
 
             # Children
             if cn in self.synopsis.isarefs:
-                for is_a_cls in sorted(
-                    self.synopsis.isarefs[cn].classrefs, reverse=True
-                ):
-                    assocs.append(
-                        self.class_box(cn)
-                        + yuml_is_a
-                        + self.class_box(ClassDefinitionName(is_a_cls))
-                    )
+                for is_a_cls in sorted(self.synopsis.isarefs[cn].classrefs, reverse=True):
+                    assocs.append(self.class_box(cn) + yuml_is_a + self.class_box(ClassDefinitionName(is_a_cls)))
 
             # Parent
             if cls.is_a and cls.is_a not in self.associations_generated:
@@ -280,7 +221,7 @@ class YumlGenerator(Generator):
         self,
         cn: ClassDefinitionName,
         all_slots: bool = True,
-        filtr: Callable[[SlotDefinition], bool] = None,
+        filtr: Callable[[SlotDefinition], bool] = lambda: True,
     ) -> List[SlotDefinition]:
         """Return the set of slots associated with the class that meet the filter criteria.  Slots will be returned
         in defining order, with class slots returned last
@@ -290,9 +231,6 @@ class YumlGenerator(Generator):
         @param filtr: Slot filter predicate
         @return: List of slot definitions
         """
-        if filtr is None:
-            filtr = lambda x: True
-
         rval = []
         cls = self.schema.classes[cn]
         cls_slots = self.all_slots(cls, cls_slots_first=True)
@@ -315,23 +253,16 @@ class YumlGenerator(Generator):
         """
         pk = "(pk)" if slot.key else ""
         inherited = slot.name not in self.own_slot_names(cls)
-        mixin = inherited and slot.name in [
-            mslot.name for mslot in [self.schema.classes[m] for m in cls.mixins]
-        ]
+        mixin = inherited and slot.name in [mslot.name for mslot in [self.schema.classes[m] for m in cls.mixins]]
         injected = cls.name in self.synopsis.applytos.classrefs and slot.name in [
             aslot.name
-            for aslot in [
-                self.schema.classes[a]
-                for a in sorted(self.synopsis.applytorefs[cls.name].classrefs)
-            ]
+            for aslot in [self.schema.classes[a] for a in sorted(self.synopsis.applytorefs[cls.name].classrefs)]
         ]
-        return pk + (
-            "(a)" if injected else "(m)" if mixin else "(i)" if inherited else ""
-        )
+        return pk + ("(a)" if injected else "(m)" if mixin else "(i)" if inherited else "")
 
 
 @shared_arguments(YumlGenerator)
-@click.command()
+@click.command(name="yuml")
 @click.option("--classes", "-c", multiple=True, help="Class(es) to emit")
 @click.option(
     "--directory",
