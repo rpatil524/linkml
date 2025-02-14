@@ -3,16 +3,22 @@ import logging
 from copy import deepcopy
 from typing import Dict, List, Optional, Union, cast
 
-from linkml_runtime.linkml_model.meta import (ClassDefinition, Element,
-                                              EnumDefinition, SchemaDefinition,
-                                              SlotDefinition,
-                                              SlotDefinitionName,
-                                              TypeDefinition,
-                                              TypeDefinitionName)
+from linkml_runtime.linkml_model.meta import (
+    ClassDefinition,
+    Element,
+    EnumDefinition,
+    SchemaDefinition,
+    SlotDefinition,
+    SlotDefinitionName,
+    TypeDefinition,
+    TypeDefinitionName,
+)
 from linkml_runtime.utils.formatutils import camelcase, underscore
 from linkml_runtime.utils.namespaces import Namespaces
 from linkml_runtime.utils.yamlutils import extended_str
 from rdflib import URIRef
+
+logger = logging.getLogger(__name__)
 
 
 def merge_schemas(
@@ -45,26 +51,14 @@ def merge_schemas(
             imported_from_uri = imported_from
         else:
             imported_from_uri = namespaces.uri_for(imported_from)
-    merge_dicts(
-        target.classes, mergee.classes, imported_from, imported_from_uri, merge_imports
-    )
-    merge_dicts(
-        target.slots, mergee.slots, imported_from, imported_from_uri, merge_imports
-    )
-    merge_dicts(
-        target.types, mergee.types, imported_from, imported_from_uri, merge_imports
-    )
-    merge_dicts(
-        target.subsets, mergee.subsets, imported_from, imported_from_uri, merge_imports
-    )
-    merge_dicts(
-        target.enums, mergee.enums, imported_from, imported_from_uri, merge_imports
-    )
+    merge_dicts(target.classes, mergee.classes, imported_from, imported_from_uri, merge_imports)
+    merge_dicts(target.slots, mergee.slots, imported_from, imported_from_uri, merge_imports)
+    merge_dicts(target.types, mergee.types, imported_from, imported_from_uri, merge_imports)
+    merge_dicts(target.subsets, mergee.subsets, imported_from, imported_from_uri, merge_imports)
+    merge_dicts(target.enums, mergee.enums, imported_from, imported_from_uri, merge_imports)
 
 
-def merge_namespaces(
-    target: SchemaDefinition, mergee: SchemaDefinition, namespaces
-) -> None:
+def merge_namespaces(target: SchemaDefinition, mergee: SchemaDefinition, namespaces) -> None:
     """
     Add the mergee namespace definitions to target
 
@@ -74,14 +68,13 @@ def merge_namespaces(
     :return:
     """
     for prefix in mergee.prefixes.values():
-
         # Handle local prefixes special: we assume that these happen because we are in different (levels of) folders,
         # and we assume that they reference the same linkml file
         if "://" not in prefix.prefix_reference:
             # We cannot resolve this to an absolute path, so we have to assume that
             # this prefix is already defined correctly in the target
             if prefix.prefix_prefix not in namespaces:
-                logging.info(
+                logger.info(
                     "Adding an unadjusted relative prefix for %s from %s, "
                     + "as the prefix is not yet defined, even as we cannot adjust it relative to the final file. "
                     + "If it cannot be resolved, add the prefix definition to the input schema!",
@@ -92,10 +85,9 @@ def merge_namespaces(
             else:
                 if (
                     prefix.prefix_prefix in target.prefixes
-                    and target.prefixes[prefix.prefix_prefix].prefix_reference
-                    != prefix.prefix_reference
+                    and target.prefixes[prefix.prefix_prefix].prefix_reference != prefix.prefix_reference
                 ):
-                    logging.info(
+                    logger.info(
                         "Ignoring different relative prefix for %s from %s, "
                         + "as we cannot adjust it relative to the final file. "
                         + "Assuming the first found location is correct: %s!",
@@ -110,12 +102,9 @@ def merge_namespaces(
         #     target.prefixes[prefix.prefix_prefix] = prefix
         if (
             prefix.prefix_prefix in target.prefixes
-            and target.prefixes[prefix.prefix_prefix].prefix_reference
-            != prefix.prefix_reference
+            and target.prefixes[prefix.prefix_prefix].prefix_reference != prefix.prefix_reference
         ):
-            raise ValueError(
-                f"Prefix: {prefix.prefix_prefix} mismatch between {target.name} and {mergee.name}"
-            )
+            raise ValueError(f"Prefix: {prefix.prefix_prefix} mismatch between {target.name} and {mergee.name}")
     for mmap in mergee.default_curi_maps:
         namespaces.add_prefixmap(mmap)
 
@@ -144,9 +133,7 @@ def merge_dicts(
 ) -> None:
     for k, v in source.items():
         if k in target and source[k].from_schema != target[k].from_schema:
-            raise ValueError(
-                f"Conflicting URIs ({source[k].from_schema}, {target[k].from_schema}) for item: {k}"
-            )
+            raise ValueError(f"Conflicting URIs ({source[k].from_schema}, {target[k].from_schema}) for item: {k}")
         target[k] = deepcopy(v)
         # currently all imports closures are merged into main schema, EXCEPT
         # internal linkml types, which are considered separate
@@ -177,11 +164,7 @@ def merge_slots(
     if skip is None:
         skip = []
     for k, v in dataclasses.asdict(source).items():
-        if (
-            k not in skip
-            and v is not None
-            and (not inheriting or getattr(target, k, None) is None)
-        ):
+        if k not in skip and v is not None and (not inheriting or getattr(target, k, None) is None):
             if k in source._inherited_slots or not inheriting:
                 setattr(target, k, deepcopy(v))
             else:
@@ -189,9 +172,7 @@ def merge_slots(
     target.__post_init__()
 
 
-def slot_usage_name(
-    usage_name: SlotDefinitionName, owning_class: ClassDefinition
-) -> SlotDefinitionName:
+def slot_usage_name(usage_name: SlotDefinitionName, owning_class: ClassDefinition) -> SlotDefinitionName:
     """
      Synthesize a unique name for an overridden slot
 
@@ -202,9 +183,7 @@ def slot_usage_name(
     return SlotDefinitionName(extended_str.concat(owning_class.name, "_", usage_name))
 
 
-def alias_root(
-    schema: SchemaDefinition, slotname: SlotDefinitionName
-) -> Optional[SlotDefinitionName]:
+def alias_root(schema: SchemaDefinition, slotname: SlotDefinitionName) -> Optional[SlotDefinitionName]:
     """Return the ultimate alias of a slot"""
     alias = schema.slots[slotname].alias if slotname in schema.slots else None
     if alias and alias == slotname:
@@ -234,9 +213,7 @@ def merge_classes(
         if slotbase in target.slot_usage:
             slotname = slot_usage_name(slotbase, target)
         if slotbase not in target_base_slots:
-            target.slots.append(slotname) if at_end else target.slots.insert(
-                0, slotname
-            )
+            target.slots.append(slotname) if at_end else target.slots.insert(0, slotname)
             target_base_slots.add(slotbase)
 
 

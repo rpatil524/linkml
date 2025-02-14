@@ -1,4 +1,27 @@
-# Class: {{ gen.name(element) }}
+{%- if element.title %}
+    {%- set title = element.title ~ ' (' ~ element.name ~ ')' -%}
+{%- else %}
+    {%- if gen.use_class_uris -%}
+        {%- set title = element.name -%}
+    {%- else -%}
+        {%- set title = gen.name(element) -%}
+    {%- endif -%}
+{%- endif -%}
+
+{% macro compute_range(slot) -%}
+    {%- if slot.any_of or slot.exactly_one_of -%}
+        {%- for subslot_range in schemaview.slot_range_as_union(slot) -%}
+            {{ gen.link(subslot_range) }}
+            {%- if not loop.last -%}
+                &nbsp;or&nbsp;<br />
+            {%- endif -%}
+        {%- endfor -%}
+    {%- else -%}
+        {{ gen.link(slot.range) }}
+    {%- endif -%}
+{% endmacro %}
+
+# Class: {{ title }}
 
 {%- if header -%}
 {{header}}
@@ -18,7 +41,18 @@ _{{ element_description_line }}_
 
 URI: {{ gen.uri_link(element) }}
 
+
+{% if diagram_type == "er_diagram" %}
+```{{ gen.mermaid_directive() }}
+{{ gen.mermaid_diagram([element.name]) }}
+```
+{% elif diagram_type == "plantuml_class_diagram" %}
+```puml
+{{ gen.mermaid_diagram([element.name]) }}
+```
+{% else %}
 {% include "class_diagram.md.jinja2" %}
+{% endif %}
 
 {% if schemaview.class_parents(element.name) or schemaview.class_children(element.name, mixins=False) %}
 
@@ -34,12 +68,12 @@ URI: {{ gen.uri_link(element) }}
 | ---  | --- | --- | --- |
 {% if gen.get_direct_slots(element)|length > 0 %}
 {%- for slot in gen.get_direct_slots(element) -%}
-| {{ gen.link(slot) }} | {{ gen.cardinality(slot) }} <br/> {{ gen.link(slot.range) }} | {{ slot.description|enshorten }} | direct |
+| {{ gen.link(slot) }} | {{ gen.cardinality(slot) }} <br/> {{ compute_range(slot) }} | {{ slot.description|enshorten }} | direct |
 {% endfor -%}
 {% endif -%}
 {% if gen.get_indirect_slots(element)|length > 0 %}
 {%- for slot in gen.get_indirect_slots(element) -%}
-| {{ gen.link(slot) }} | {{ gen.cardinality(slot) }} <br/> {{ gen.link(slot.range) }} | {{ slot.description|enshorten }} | {{ gen.links(gen.get_slot_inherited_from(element.name, slot.name))|join(', ') }} |
+| {{ gen.link(slot) }} | {{ gen.cardinality(slot) }} <br/> {{ compute_range(slot) }} | {{ slot.description|enshorten }} | {{ gen.links(gen.get_slot_inherited_from(element.name, slot.name))|join(', ') }} |
 {% endfor -%}
 {% endif %}
 
@@ -64,20 +98,6 @@ URI: {{ gen.uri_link(element) }}
 {% endif %}
 
 {% include "common_metadata.md.jinja2" %}
-
-
-{% if schemaview.get_mappings(element.name).items() -%}
-## Mappings
-
-| Mapping Type | Mapped Value |
-| ---  | ---  |
-{% for m, mt in schemaview.get_mappings(element.name).items() -%}
-{% if mt|length > 0 -%}
-| {{ m }} | {{ mt|join(', ') }} |
-{% endif -%}
-{% endfor %}
-
-{% endif -%}
 
 {% if gen.example_object_blobs(element.name) -%}
 ## Examples

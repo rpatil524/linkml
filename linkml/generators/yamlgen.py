@@ -1,12 +1,9 @@
-"""Validate linkml input and optionally emit completely resolved biolink yaml output
+"""Validate linkml input and optionally emit completely resolved biolink yaml output"""
 
-"""
 import os
-from dataclasses import dataclass, field
-from typing import TextIO, Union
+from dataclasses import dataclass
 
 import click
-from linkml_runtime.linkml_model.meta import SchemaDefinition
 from linkml_runtime.utils.yamlutils import as_yaml
 
 from linkml._version import __version__
@@ -27,7 +24,7 @@ class YAMLGenerator(Generator):
     uses_schemaloader = True
 
     # ObjectVars
-    validateonly: bool = field(default_factory=lambda: False)
+    validateonly: bool = False
 
     def serialize(self, validateonly: bool = False, **kwargs) -> str:
         if validateonly:
@@ -37,7 +34,7 @@ class YAMLGenerator(Generator):
 
 
 @shared_arguments(YAMLGenerator)
-@click.command()
+@click.command(name="yaml")
 @click.option(
     "--raw/--no-raw",
     default=False,

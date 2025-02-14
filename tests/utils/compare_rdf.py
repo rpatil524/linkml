@@ -4,7 +4,7 @@ from io import StringIO
 from typing import Optional, Union
 
 from linkml_runtime.linkml_model.meta import LINKML
-from rdflib import RDF, Graph, Namespace
+from rdflib import RDF, Graph
 from rdflib.compare import IsomorphicGraph, graph_diff, to_isomorphic
 
 # TODO: Find out why test_issue_namespace is emitting generation_date in the TYPE namespace
@@ -38,7 +38,7 @@ def print_triples(g: Graph) -> None:
     Print the contents of g into stdout
     :param g: graph to print
     """
-    g_text = re.sub(r"@prefix.*\n", "", g.serialize(format="turtle").decode())
+    g_text = re.sub(r"@prefix.*\n", "", g.serialize(format="turtle"))
     print(g_text)
 
 

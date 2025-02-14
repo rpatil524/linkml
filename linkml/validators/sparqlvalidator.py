@@ -7,19 +7,20 @@ import click
 from linkml_runtime.linkml_model import SchemaDefinition
 from linkml_runtime.utils.schemaview import SchemaView
 from rdflib import Graph
-from SPARQLWrapper import (JSON, N3, RDF, RDFXML, TURTLE, SPARQLWrapper,
-                           SPARQLWrapper2)
+from SPARQLWrapper import JSON, SPARQLWrapper
 
 from linkml._version import __version__
 from linkml.generators.sparqlgen import SparqlGenerator
-from linkml.generators.yamlgen import YAMLGenerator
 from linkml.reporting import CheckResult, Report
-from linkml.utils.datautils import (_get_format, dumpers_loaders, get_dumper,
-                                    get_loader)
+from linkml.utils.datautils import _get_format, dumpers_loaders, get_dumper
 from linkml.utils.datavalidator import DataValidator
+from linkml.utils.deprecation import deprecation_warning
+
+logger = logging.getLogger(__name__)
 
 
 def sparqljson2dict(row: dict):
+    deprecation_warning("validators")
     return {k: v["value"] for k, v in row.items()}
 
 
@@ -34,16 +35,17 @@ def _make_result(row):
 
 @dataclass
 class SparqlDataValidator(DataValidator):
-
     schema: SchemaDefinition = None
     queries: dict = None
 
     def validate_file(self, input: str, format: str = "turtle", **kwargs):
+        deprecation_warning("validators")
         g = Graph()
         g.parse(input, format=format)
         return self.validate_graph(g, **kwargs)
 
     def validate_graph(self, g: Graph, **kwargs):
+        deprecation_warning("validators")
         if self.queries is None:
             self.queries = SparqlGenerator(self.schema, **kwargs).queries
         invalid = []
@@ -59,18 +61,19 @@ class SparqlDataValidator(DataValidator):
                 for row in qres:
                     invalid += row
             except Exception:
-                logging.error(f"FAILED: {qn}")
+                logger.error(f"FAILED: {qn}")
         return invalid
 
     def validate_endpoint(self, url: str, **kwargs):
+        deprecation_warning("validators")
         if self.queries is None:
             self.queries = SparqlGenerator(self.schema, **kwargs).queries
         invalid = []
         report = Report()
         for qn, q in self.queries.items():
             q += " LIMIT 20"
-            logging.debug(f"QUERY: {qn}")
-            logging.debug(f"{q}")
+            logger.debug(f"QUERY: {qn}")
+            logger.debug(f"{q}")
             sw = SPARQLWrapper(url)
             sw.setQuery(q)
             sw.setReturnFormat(JSON)
@@ -83,16 +86,15 @@ class SparqlDataValidator(DataValidator):
         return report
 
     def load_schema(self, schema: Union[str, SchemaDefinition]):
+        deprecation_warning("validators")
         self.schemaview = SchemaView(schema)
         self.schema = self.schemaview.schema
         # self.schema = YAMLGenerator(schema).schema
         return self.schema
 
 
-@click.command()
-@click.option(
-    "--named-graph", "-G", multiple=True, help="Constrain query to a named graph"
-)
+@click.command(name="sparql")
+@click.option("--named-graph", "-G", multiple=True, help="Constrain query to a named graph")
 @click.option("--input", "-i", help="Input file to validate")
 @click.option("--endpoint-url", "-U", help="URL of sparql endpoint")
 @click.option("--limit", "-L", help="Max results per query")
@@ -128,16 +130,13 @@ def cli(
 
         linkml-sparql-validate -U http://sparql.hegroup.org/sparql -s tests/test_validation/input/omo.yaml
     """
-    if schema is not None:
-        sv = SchemaView(schema)
+    deprecation_warning("validators")
     validator = SparqlDataValidator(schema)
     if endpoint_url is not None:
-        results = validator.validate_endpoint(
-            endpoint_url, limit=limit, named_graphs=named_graph
-        )
+        results = validator.validate_endpoint(endpoint_url, limit=limit, named_graphs=named_graph)
     else:
         if input is None:
-            raise Exception(f"Must pass one of --endpoint-url OR --input")
+            raise Exception("Must pass one of --endpoint-url OR --input")
         input_format = _get_format(input, input_format)
         results = validator.validate_file(input, format=input_format)
     output_format = _get_format(output, output_format, default="json")

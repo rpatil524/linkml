@@ -1,15 +1,13 @@
 import json
-import logging
-import sys
 from typing import TextIO, Type, Union
 
 import jsonschema
 from linkml_runtime.dumpers import json_dumper
 from linkml_runtime.linkml_model import SchemaDefinition
-from linkml_runtime.utils.schemaview import SchemaView
-from linkml_runtime.utils.yamlutils import YAMLRoot, as_dict
+from linkml_runtime.utils.yamlutils import YAMLRoot
 
 from linkml.generators.jsonschemagen import JsonSchemaGenerator
+from linkml.utils.deprecation import deprecation_warning
 
 
 def _as_dict(inst):
@@ -19,7 +17,6 @@ def _as_dict(inst):
     return inst_dict
 
 
-# Deprecated: use validators module
 def validate_object(
     data: YAMLRoot,
     schema: Union[str, TextIO, SchemaDefinition],
@@ -35,6 +32,7 @@ def validate_object(
     :param closed:
     :return:
     """
+    deprecation_warning("validators")
     if target_class is None:
         target_class = type(data)
     inst_dict = _as_dict(data)
@@ -46,4 +44,6 @@ def validate_object(
         not_closed=not_closed,
     ).serialize(not_closed=not_closed)
     jsonschema_obj = json.loads(jsonschemastr)
-    return jsonschema.validate(inst_dict, schema=jsonschema_obj, format_checker=jsonschema.Draft7Validator.FORMAT_CHECKER)
+    return jsonschema.validate(
+        inst_dict, schema=jsonschema_obj, format_checker=jsonschema.Draft7Validator.FORMAT_CHECKER
+    )

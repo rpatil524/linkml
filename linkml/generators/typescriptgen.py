@@ -1,22 +1,16 @@
 import logging
 import os
-from copy import deepcopy
 from dataclasses import dataclass
-from pathlib import Path
-from typing import (Callable, Dict, Iterator, List, Optional, Set, TextIO,
-                    Tuple, Union)
+from typing import List, Optional
 
 import click
-from jinja2 import Environment, FileSystemLoader, Template
-from linkml_runtime.dumpers import yaml_dumper
+from jinja2 import Template
 from linkml_runtime.linkml_model.meta import (
-    Annotation, ClassDefinition,
-    ClassDefinitionName, Definition,
-    DefinitionName, Element,
-    EnumDefinition, SchemaDefinition,
+    ClassDefinition,
+    ClassDefinitionName,
+    Element,
     SlotDefinition,
     SlotDefinitionName,
-    TypeDefinition
 )
 from linkml_runtime.utils.formatutils import camelcase, underscore
 from linkml_runtime.utils.schemaview import SchemaView
@@ -25,12 +19,23 @@ from linkml._version import __version__
 from linkml.generators.oocodegen import OOCodeGenerator
 from linkml.utils.generator import shared_arguments
 
+logger = logging.getLogger(__name__)
+
+
 type_map = {
     "str": "string",
     "int": "number",
     "Bool": "boolean",
     "float": "number",
     "XSDDate": "date",
+}
+
+type_init_map = {
+    "str": "''",
+    "int": "0",
+    "Bool": "false",
+    "float": "0.0",
+    "XSDDate": "new Date()",
 }
 
 default_template = """
@@ -55,7 +60,7 @@ export enum {{e.name}} {
     {% if pv.description -%}
     /** {{pv.description}} */
     {% endif -%}
-    {{pv.label}} = "{{pv.value}}",    
+    {{pv.label}} = "{{pv.value}}",
     {%- endfor %}
 };
 {% endfor %}
@@ -65,17 +70,39 @@ export enum {{e.name}} {
 /**
  * {{c.description}}
  */
-{%- endif -%} 
+{%- endif -%}
 {% set parents = gen.parents(c) %}
 export interface {{gen.name(c)}} {%- if parents %} extends {{parents|join(', ')}} {%- endif %} {
-    {%- for sn in view.class_slots(c.name, direct=False) %}
+    {%- for sn in view.class_slots(c.name, direct=not(gen.include_induced_slots)) %}
     {% set s = view.induced_slot(sn, c.name) %}
     {%- if s.description -%}
     /** {{s.description}} */
     {% endif -%}
     {{gen.name(s)}}{%- if not s.required -%}?{%- endif -%}: {{gen.range(s)}},
     {%- endfor %}
-};
+}
+
+{% if gen.gen_type_utils %}
+export function is{{gen.name(c)}}(o: object): o is {{gen.name(c)}} {
+    {%- set rcs = gen.required_slots(c) %}
+    {%- set comp = "&&" if rcs else "||" %}
+    {%- set cs = rcs if rcs else view.class_slots(c.name, direct=False) %}
+    return (
+        {%- for sn in cs %}
+        '{{sn}}' in o {%- if not loop.last %} {{comp}}{% endif -%}
+        {%- endfor %}
+    )
+}
+
+export function to{{gen.name(c)}}(o: {{gen.name(c)}}): {{gen.name(c)}} {
+    return {
+        {%- for sn in view.class_slots(c.name, direct=False) %}
+        {%- set s = view.induced_slot(sn, c.name) %}
+        {{sn}}: o.{{sn}} ?? {{gen.init_range(s)}}{%- if not loop.last %},{%- endif -%}
+        {%- endfor %}
+    }
+}
+{% endif %}
 {% endfor %}
 """
 
@@ -92,7 +119,11 @@ class TypescriptGenerator(OOCodeGenerator):
     valid_formats = ["text"]
     uses_schemaloader = False
 
-    def serialize(self) -> str:
+    # ObjectVars
+    gen_type_utils: bool = False
+    include_induced_slots: bool = False
+
+    def serialize(self, output=None) -> str:
         """Serialize a schema to typescript string"""
 
         sv: SchemaView = self.schemaview
@@ -104,9 +135,13 @@ class TypescriptGenerator(OOCodeGenerator):
             view=self.schemaview,
             enums=enums,
         )
+        if output is not None:
+            with open(output, "w") as out:
+                out.write(out_str)
         return out_str
 
-    def name(self, element: Element) -> str:
+    @staticmethod
+    def name(element: Element) -> str:
         """
         Returns the name of the element in its canonical form
 
@@ -137,9 +172,7 @@ class TypescriptGenerator(OOCodeGenerator):
         else:
             return None
 
-    def get_identifier_or_key_slot(
-        self, cn: ClassDefinitionName
-    ) -> Optional[SlotDefinition]:
+    def get_identifier_or_key_slot(self, cn: ClassDefinitionName) -> Optional[SlotDefinition]:
         sv = self.schemaview
         id_slot = sv.get_identifier_slot(cn)
         if id_slot:
@@ -177,14 +210,49 @@ class TypescriptGenerator(OOCodeGenerator):
                 tsrange = "string"
                 if t.base and t.base in type_map:
                     tsrange = type_map[t.base]
+                elif t.typeof and t.typeof in type_map:
+                    tsrange = type_map[t.typeof]
                 else:
-                    logging.warning(f"Unknown type.base: {t.name}")
+                    logger.warning(f"Unknown type.base: {t.name}")
                 if slot.multivalued:
                     tsrange = f"{tsrange}[]"
                 return tsrange
             return "string"
 
-    def parents(self, cls: ClassDefinition) -> List[ClassDefinitionName]:
+    def init_range(self, slot: SlotDefinition) -> str:
+        sv = self.schemaview
+        r = slot.range
+        if r in sv.all_classes():
+            id_slot = self.get_identifier_or_key_slot(r)
+            if slot.multivalued:
+                if not id_slot or slot.inlined:
+                    if slot.inlined_as_list or not id_slot:
+                        return "[]"
+                    else:
+                        return "{}"
+                else:
+                    return "[]"
+            else:
+                if not id_slot or slot.inlined:
+                    return "{}"
+                else:
+                    return "null"
+        else:
+            if r in sv.all_types():
+                t = sv.get_type(r)
+                if slot.multivalued:
+                    return "[]"
+                elif t.base and t.base in type_map:
+                    return type_init_map[t.base]
+                elif t.typeof and t.typeof in type_map:
+                    return type_init_map[t.typeof]
+                else:
+                    logger.warning(f"Unknown type.base: {t.name}")
+                return "null"
+            return "null"
+
+    @staticmethod
+    def parents(cls: ClassDefinition) -> List[ClassDefinitionName]:
         if cls.is_a:
             parents = [cls.is_a]
         else:
@@ -194,16 +262,27 @@ class TypescriptGenerator(OOCodeGenerator):
     def default_value_for_type(self, typ: str) -> str:
         pass
 
+    def required_slots(self, cls: ClassDefinition) -> List[SlotDefinitionName]:
+        return [s for s in self.schemaview.class_slots(cls.name) if self.schemaview.induced_slot(s, cls.name).required]
+
+
 @shared_arguments(TypescriptGenerator)
 @click.version_option(__version__, "-V", "--version")
+@click.option("--gen-type-utils/", "-u", help="Generate Type checking utils", is_flag=True)
+@click.option("--include-induced-slots/", help="Generate slots induced through inheritance", is_flag=True)
+@click.option("--output", type=click.Path(dir_okay=False))
 @click.command()
-def cli(yamlfile, **args):
+def cli(yamlfile, gen_type_utils=False, include_induced_slots=False, output=None, **args):
     """Generate typescript interfaces and types
 
-    See https://linkml.io/linkml-runtime.js
+    See https://github.com/linkml/linkml-runtime.js
     """
-    gen = TypescriptGenerator(yamlfile, **args)
-    print(gen.serialize())
+    gen = TypescriptGenerator(
+        yamlfile, gen_type_utils=gen_type_utils, include_induced_slots=include_induced_slots, **args
+    )
+    serialized = gen.serialize(output=output)
+    if output is None:
+        print(serialized)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,4 @@
 import inspect
-import json
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import lru_cache
@@ -9,6 +8,7 @@ from typing import Any, Dict, Iterable, Union
 import jsonschema
 import yaml
 from jsonschema.exceptions import best_match
+from jsonschema.protocols import Validator
 from linkml_runtime import SchemaView
 from linkml_runtime.dumpers import yaml_dumper
 from linkml_runtime.linkml_model import SchemaDefinition
@@ -36,10 +36,11 @@ def get_named_config(name: str) -> Dict[str, Any]:
 
 
 @lru_cache
-def get_metamodel_validator() -> jsonschema.Validator:
+def get_metamodel_validator() -> Validator:
     meta_json_gen = JsonSchemaGenerator(LOCAL_METAMODEL_YAML_FILE, not_closed=False)
-    meta_json_schema = json.loads(meta_json_gen.serialize())
-    validator = jsonschema.Draft7Validator(meta_json_schema)
+    meta_json_schema = meta_json_gen.generate()
+    validator_cls = jsonschema.validators.validator_for(meta_json_schema, default=jsonschema.Draft7Validator)
+    validator = validator_cls(meta_json_schema, format_checker=validator_cls.FORMAT_CHECKER)
     return validator
 
 
@@ -70,9 +71,7 @@ class Linter:
         default_config = deepcopy(get_named_config("default"))
         merged_config = config
         if config.get("extends") == ExtendableConfigs.recommended.text:
-            recommended_config = deepcopy(
-                get_named_config(ExtendableConfigs.recommended.text)
-            )
+            recommended_config = deepcopy(get_named_config(ExtendableConfigs.recommended.text))
             merged_config = merge_configs(recommended_config, merged_config)
         merged_config = merge_configs(default_config, merged_config)
         self.config = Config(**merged_config)
@@ -87,7 +86,8 @@ class Linter:
             ]
         )
 
-    def validate_schema(self, schema_path: str):
+    @staticmethod
+    def validate_schema(schema_path: str):
         with open(schema_path) as schema_file:
             schema = yaml.safe_load(schema_file)
 
@@ -119,7 +119,7 @@ class Linter:
 
         try:
             schema_view = SchemaView(schema)
-        except:
+        except Exception:
             if not validate_schema:
                 yield LinterProblem(
                     message="File is not a valid LinkML schema. Use --validate for more details.",

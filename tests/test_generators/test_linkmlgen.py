@@ -1,87 +1,177 @@
-import os
-import tempfile
-import unittest
-
 import yaml
+from click.testing import CliRunner
 from linkml_runtime import SchemaView
+from linkml_runtime.linkml_model import SchemaDefinition
 
-from linkml.generators.linkmlgen import LinkmlGenerator
-from linkml.generators.sssomgen import SSSOMGenerator
-from linkml.generators.yamlgen import YAMLGenerator
-from tests.test_generators.environment import env
+from linkml.generators.linkmlgen import LinkmlGenerator, cli
 
-SCHEMA = env.input_path("kitchen_sink.yaml")
-PATTERN_SCHEMA = env.input_path("pattern-example.yaml")
-CORE = env.input_path("core.yaml")
 
-class LinkMLGenTestCase(unittest.TestCase):
+def test_linkmlgen_prefixes():
+    schema = SchemaDefinition(
+        name="EquipmentSchema", description="", id="equipment_schema", default_prefix="equipment_schema"
+    )
 
-    def setUp(self):
-        self.schemaview = SchemaView(SCHEMA)
+    schema.default_range = "string"
+    schema.prefixes = {
+        "equipment_schema": "https://example.org/equipment_schema/",
+        "linkml": "https://w3id.org/linkml/",
+        "xsd": "http://www.w3.org/2001/XMLSchema#",
+    }
 
-    def test_generate(self):
-        sv = self.schemaview
-        self.assertIn("activity", sv.all_classes(imports=True))
-        self.assertNotIn("activity", sv.all_classes(imports=False))
-        self.assertListEqual(["is_living"], list(sv.get_class("Person").attributes.keys()))
+    lml_gen = LinkmlGenerator(schema=schema, format="yaml")
+    yaml_text = lml_gen.serialize()
 
-        gen = LinkmlGenerator(SCHEMA, format='yaml', mergeimports=False)
-        out = gen.serialize()
-        # TODO: restore this when imports works for string inputs
-        #schema2 = YAMLGenerator(out).schema
-        #sv2 = SchemaView(schema2)
-        #self.assertEqual(len(sv2.all_classes(imports=False)), len(sv.all_classes(imports=False)))
-        #self.assertIn("activity", sv2.all_classes(imports=True))
-        #self.assertNotIn("activity", sv2.all_classes(imports=False))
-        #self.assertEqual([], list(sv2.get_class("Person").attributes.keys()))
+    with open("output.yaml", "w") as f:
+        f.write(yaml_text)
 
-        yobj = yaml.safe_load(out)
-        self.assertEqual(len(yobj["classes"]), len(sv.all_classes(imports=False)))
-        # self.assertNotIn("attributes", yobj["classes"]["Person"])
-        # test with material-attributes option
-        gen2 = LinkmlGenerator(SCHEMA, format='yaml', mergeimports=False)
-        gen2.materialize_attributes = True
-        out2 = gen2.serialize()
-        yobj2 = yaml.safe_load(out2)
-        self.assertEqual(len(yobj2["classes"]), len(sv.all_classes(imports=False)))
-        self.assertIn("attributes", yobj2["classes"]["Person"])
-        self.assertNotIn("activity", yobj2["classes"])
-        self.assertNotIn("agent", yobj2["classes"])
 
-        # turn on mergeimports option
-        gen3 = LinkmlGenerator(SCHEMA, format="yaml", mergeimports=True)
-        out3 = gen3.serialize()
-        yobj3 = yaml.safe_load(out3)
-        self.assertEqual(len(yobj3["classes"]), len(sv.all_classes(imports=True)))
-        self.assertIn("activity", yobj3["classes"])
-        self.assertIn("agent", yobj3["classes"])
+def test_generate(kitchen_sink_path):
+    sv = SchemaView(kitchen_sink_path)
+    assert "activity" in sv.all_classes(imports=True)
+    assert "activity" not in sv.all_classes(imports=False)
+    assert ["is_living"] == list(sv.get_class("Person").attributes.keys())
 
-        # test that structured patterns are being expanded
-        # and populated into the pattern property on a class
-        pattern_gen = LinkmlGenerator(
-            PATTERN_SCHEMA,
-            materialize_patterns=True,
-            format="yaml",
-        )
+    gen = LinkmlGenerator(kitchen_sink_path, format="yaml", mergeimports=False)
+    out = gen.serialize()
+    # TODO: restore this when imports works for string inputs
+    # schema2 = YAMLGenerator(out).schema
+    # sv2 = SchemaView(schema2)
+    # self.assertEqual(len(sv2.all_classes(imports=False)), len(sv.all_classes(imports=False)))
+    # self.assertIn("activity", sv2.all_classes(imports=True))
+    # self.assertNotIn("activity", sv2.all_classes(imports=False))
+    # self.assertEqual([], list(sv2.get_class("Person").attributes.keys()))
 
-        _, filename = tempfile.mkstemp()
-        yaml_filename = filename + ".yaml"
-                
-        pattern_gen.serialize(output=yaml_filename)
-        # log yaml_filename so developers can look at its contents
-        self.assertEqual(
-            pattern_gen.schemaview.get_slot("id").pattern,
-            "^P\d{7}"
-        )
-        self.assertEqual(
-            pattern_gen.schemaview.get_slot("height").pattern,
-            "\\d+[\\.\\d+] (centimeter|meter|inch)",
-        )
-        self.assertEqual(
-            pattern_gen.schemaview.get_slot("weight").pattern,
-            "\\d+[\\.\\d+] (kg|g|lbs|stone)",
-        )
-        
+    yobj = yaml.safe_load(out)
+    assert len(yobj["classes"]) == len(sv.all_classes(imports=False))
+    # self.assertNotIn("attributes", yobj["classes"]["Person"])
+    # test with material-attributes option
+    gen2 = LinkmlGenerator(kitchen_sink_path, format="yaml", mergeimports=False)
+    gen2.materialize_attributes = True
+    out2 = gen2.serialize()
+    yobj2 = yaml.safe_load(out2)
+    assert len(yobj2["classes"]) == len(sv.all_classes(imports=False))
+    assert "attributes" in yobj2["classes"]["Person"]
+    assert "activity" not in yobj2["classes"]
+    assert "agent" not in yobj2["classes"]
 
-if __name__ == "__main__":
-    unittest.main()
+    # turn on mergeimports option
+    gen3 = LinkmlGenerator(kitchen_sink_path, format="yaml", mergeimports=True)
+    out3 = gen3.serialize()
+    yobj3 = yaml.safe_load(out3)
+    assert len(yobj3["classes"]) == len(sv.all_classes(imports=True))
+    assert "activity" in yobj3["classes"]
+    assert "agent" in yobj3["classes"]
+
+
+def test_structured_pattern(input_path):
+    # test that structured patterns are being expanded
+    # and populated into the pattern property on a class
+    pattern_gen = LinkmlGenerator(
+        str(input_path("pattern-example.yaml")),
+        materialize_patterns=True,
+        format="yaml",
+    )
+
+    pattern_gen.serialize()
+    # log yaml_filename so developers can look at its contents
+    assert pattern_gen.schemaview.get_slot("id").pattern == r"^P\d{7}"
+    assert pattern_gen.schemaview.get_slot("height").pattern == "\\d+[\\.\\d+] (centimeter|meter|inch)"
+    assert pattern_gen.schemaview.get_slot("weight").pattern == "\\d+[\\.\\d+] (kg|g|lbs|stone)"
+
+
+def test_default_pattern_materialization_true(input_path, tmp_path):
+    runner = CliRunner()
+    schema_path = str(input_path("pattern-example.yaml"))
+    yaml_output_path = str(tmp_path / "pattern-materialized.yaml")
+
+    # Test with `--materialize` flag set to True.
+    # In this case, both attributes and structured patterns should be expanded.
+    # Regardless of whether the `--materialize-attributes` and `--materialize-patterns`
+    # flags are set to True or False, they will be treated as True if the `--materialize`
+    # flag is set to True.
+    result = runner.invoke(
+        cli,
+        [
+            schema_path,
+            "--materialize",
+            "--no-materialize-attributes",
+            "--no-materialize-patterns",
+            "--output",
+            yaml_output_path,
+        ],
+    )
+
+    assert result.exit_code == 0, "Command failed with `--materialize` flag set to True."
+
+    yobj = yaml.safe_load(open(yaml_output_path))
+
+    assert yobj["slots"]["height"]["pattern"] == "\\d+[\\.\\d+] (centimeter|meter|inch)"
+    assert yobj["slots"]["weight"]["pattern"] == "\\d+[\\.\\d+] (kg|g|lbs|stone)"
+
+    result = runner.invoke(
+        cli,
+        [
+            schema_path,
+            "--materialize",
+            "--materialize-attributes",
+            "--materialize-patterns",
+            "--output",
+            yaml_output_path,
+        ],
+    )
+
+    assert result.exit_code == 0, "Command failed with `--materialize` flag set to True."
+
+    yobj = yaml.safe_load(open(yaml_output_path))
+
+    assert yobj["slots"]["height"]["pattern"] == "\\d+[\\.\\d+] (centimeter|meter|inch)"
+    assert yobj["slots"]["weight"]["pattern"] == "\\d+[\\.\\d+] (kg|g|lbs|stone)"
+
+
+def test_default_pattern_materialization_false(input_path, tmp_path):
+    runner = CliRunner()
+    schema_path = str(input_path("pattern-example.yaml"))
+    yaml_output_path = str(tmp_path / "pattern-not-materialized.yaml")
+
+    # Test with `--no-materialize` flag set to False.
+    # In this case, only attributes should be expanded.
+    # Regardless of whether the `--materialize-attributes` and `--materialize-patterns`
+    # flags are set to True or False, they will be treated as False if the `--no-materialize`
+    # flag is set to False.
+    result = runner.invoke(
+        cli,
+        [
+            schema_path,
+            "--no-materialize",
+            "--materialize-attributes",
+            "--materialize-patterns",
+            "--output",
+            yaml_output_path,
+        ],
+    )
+
+    assert result.exit_code == 0, "Command failed with `--no-materialize` flag set to False."
+
+    yobj = yaml.safe_load(open(yaml_output_path))
+
+    assert "pattern" not in yobj["slots"]["height"]
+    assert "pattern" not in yobj["slots"]["weight"]
+
+    result = runner.invoke(
+        cli,
+        [
+            schema_path,
+            "--no-materialize",
+            "--no-materialize-attributes",
+            "--no-materialize-patterns",
+            "--output",
+            yaml_output_path,
+        ],
+    )
+
+    assert result.exit_code == 0, "Command failed with `--no-materialize` flag set to False."
+
+    yobj = yaml.safe_load(open(yaml_output_path))
+
+    assert "pattern" not in yobj["slots"]["height"]
+    assert "pattern" not in yobj["slots"]["weight"]

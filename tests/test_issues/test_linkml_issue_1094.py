@@ -1,8 +1,6 @@
-import  unittest
+from typing import Dict, List, Union
 
 from linkml.generators.pydanticgen import PydanticGenerator
-from tests.test_issues.environment import env
-from tests.utils.test_environment import TestEnvironmentTestCase
 
 schema_str = """
 id: http://example.org
@@ -18,8 +16,9 @@ description: test
 classes:
   person:
     slots:
-      - id      
+      - id
       - has_bikes
+      - has_bike_list
     slot_usage:
       - has_bikes:
   bike:
@@ -40,20 +39,29 @@ slots:
       multivalued: true
       inlined: true
       required: true
+  - has_bike_list:
+      range: bike
+      multivalued: true
+      inlined: true
+      required: true
+      inlined_as_list: true
 """
 
 
-class Issue1094ConstCase(TestEnvironmentTestCase):
-    env = env
+def test_pydanticgen_inline_dict():
+    gen = PydanticGenerator(schema_str)
+    mod = gen.compile_module()
+    Person = getattr(mod, "Person")
+    Bike = getattr(mod, "Bike")
 
-    def test_pydanticgen_inline_dict(self):
-        gen = PydanticGenerator(schema_str)
-        output = gen.serialize()
+    dict_field = Person.model_fields["has_bikes"]
+    list_field = Person.model_fields["has_bike_list"]
 
-        output_subset = [line for line in output.splitlines() if "has_bikes: " in line]
-        assert len(output_subset) == 1
-        assert "has_bikes: Dict[str, Bike] = Field(default_factory=dict)" in output_subset[0]
+    assert dict_field.annotation == Dict[str, Union[str, Bike]]
+    assert list_field.annotation == List[Bike]
 
+    assert dict_field.default_factory is None
+    assert list_field.default_factory is None
 
-if __name__ == "__main__":
-    unittest.main()
+    assert str(dict_field.default) == "PydanticUndefined"
+    assert str(list_field.default) == "PydanticUndefined"

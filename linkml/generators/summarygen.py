@@ -1,15 +1,13 @@
-"""Generate Summary Spreadsheets
+"""Generate Summary Spreadsheets"""
 
-"""
 import os
-import sys
 from csv import DictWriter
-from dataclasses import dataclass, field
-from typing import Optional, TextIO, Union
+from dataclasses import dataclass
+from io import StringIO
+from typing import Optional
 
 import click
-from linkml_runtime.linkml_model.meta import (ClassDefinition,
-                                              SchemaDefinition, SlotDefinition)
+from linkml_runtime.linkml_model.meta import ClassDefinition, SlotDefinition
 from linkml_runtime.utils.formatutils import camelcase
 
 from linkml._version import __version__
@@ -18,7 +16,6 @@ from linkml.utils.generator import Generator, shared_arguments
 
 @dataclass
 class SummaryGenerator(Generator):
-
     # ClassVars
     generatorname = os.path.basename(__file__)
     generatorversion = "0.1.1"
@@ -27,11 +24,14 @@ class SummaryGenerator(Generator):
     dirname: str = None
     classtab: Optional[DictWriter] = None
     slottab: Optional[DictWriter] = None
-    dialect: str = field(default_factory=lambda: "excel-tab")
+    dialect: str = "excel-tab"
+
+    _str_io: Optional[StringIO] = None
 
     def visit_schema(self, **_) -> None:
+        self._str_io = StringIO()
         self.classtab = DictWriter(
-            sys.stdout,
+            self._str_io,
             [
                 "Class Name",
                 "Parent Class",
@@ -60,9 +60,7 @@ class SummaryGenerator(Generator):
         )
         return True
 
-    def visit_class_slot(
-        self, cls: ClassDefinition, aliased_slot_name: str, slot: SlotDefinition
-    ) -> None:
+    def visit_class_slot(self, cls: ClassDefinition, aliased_slot_name: str, slot: SlotDefinition) -> None:
         min_card = 1 if slot.required else 0
         max_card = "*" if slot.multivalued else 1
         abstract = "A" if slot.abstract or slot.mixin else ""
@@ -82,10 +80,13 @@ class SummaryGenerator(Generator):
             }
         )
 
+    def end_schema(self, **kwargs) -> Optional[str]:
+        return self._str_io.getvalue()
+
 
 @shared_arguments(SummaryGenerator)
 @click.version_option(__version__, "-V", "--version")
-@click.command()
+@click.command(name="summary")
 def cli(yamlfile, **args):
     """Generate TSV summary files for viewing in Excel and the like"""
     print(SummaryGenerator(yamlfile, **args).serialize(**args))

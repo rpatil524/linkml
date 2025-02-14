@@ -20,7 +20,4 @@ help:
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 apidocs:
-	pipenv run sphinx-apidoc -o ./ ../linkml
-
-deploy:
-	cp -pr _build/html/* ../docs/
+	poetry run sphinx-apidoc -o ./ ../linkml
