@@ -12,7 +12,7 @@ Join the LinkML community for regular sessions featuring presentations on LinkML
 |[Sierra Moxon](https://berkeleybop.org/people/sierra-moxon/)| Lawernce Berkeley National Laboratory|
 
 ## Guidelines for presenting at a Community meeting
-- All presenters, whether from academia, non-profit, or industry, share our **Open Science philosophy**. At a minimum, this means all LinkML code shown during a Community Call must be openly accessible for anyone to view e.g. in a public repository.
+- All presenters, whether from academia, non-profit, or industry, share our **Open Science philosophy**. At a minimum, this means all LinkML models and documentation shown during a Community Call must be openly accessible for anyone to view e.g. in a public repository.
 - Slides will be shared and made publicly viewable unless there is an exception approved by the Core LinkML Developer team.
 - Community Meetings are recorded and uploaded to our [YouTube channel](https://www.youtube.com/@LinkML-org). This is the default. If you don't want your presentation posted online, it is the responsibility of the presenter to communicate that to the meeting organizers before your presentation.
 
