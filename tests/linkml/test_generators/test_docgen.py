@@ -80,6 +80,22 @@ def test_docgen_includes(kitchen_sink_path, input_path, tmp_path):
     assert_mdfile_contains(tmp_path / "index.md", "C1", after="## Classes")
 
 
+def test_docgen_dynamic_enum_include_minus(input_path, tmp_path):
+    """Regression for linkml/linkml#3242: a dynamic enum whose ``include`` and
+    ``minus`` are lists of ``AnonymousEnumExpression`` objects must render
+    without raising ``TypeError: unhashable type: 'AnonymousEnumExpression'``.
+    """
+    schema = str(input_path("linkml_issue_3242.yaml"))
+    gen = DocGenerator(schema, mergeimports=True, no_types_dir=True)
+    gen.serialize(directory=str(tmp_path))
+    assert_mdfile_contains(
+        tmp_path / "LeukocyteLoincCodes.md",
+        "## Enumeration Operations",
+        after="Enum: LeukocyteLoincCodes",
+        followed_by=["**Includes:**", "**Excludes:**"],
+    )
+
+
 def test_docgen(kitchen_sink_path, input_path, tmp_path):
     """Tests basic document generator functionality"""
     example_dir = str(input_path("examples"))
@@ -104,13 +120,6 @@ def test_docgen(kitchen_sink_path, input_path, tmp_path):
         tmp_path / "KitchenStatus.md",
         "URI: [ks:KitchenStatus](https://w3id.org/linkml/tests/kitchen_sink/KitchenStatus)",
         after="Enum: KitchenStatus",
-    )
-    # regression for #3242 — dynamic enum with include/minus must render without TypeError
-    assert_mdfile_contains(
-        tmp_path / "LeukocyteLoincCodes.md",
-        "## Enumeration Operations",
-        after="Enum: LeukocyteLoincCodes",
-        followed_by=["**Includes:**", "**Excludes:**"],
     )
     assert_mdfile_contains(
         tmp_path / "SubsetA.md",
