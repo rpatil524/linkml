@@ -39,6 +39,7 @@ prefixes:
   schema: http://schema.org/
   bioregistry: https://bioregistry.io/
   LOINC: https://loinc.org/
+  qudt: http://qudt.org/vocab/quantitykind/
 default_prefix: ks
 default_range: string
 see_also:
@@ -399,6 +400,10 @@ slots:
     range: integer
     minimum_value: 0
     maximum_value: 999
+    unit:
+      symbol: yr
+      ucum_code: a
+      has_quantity_kind: qudt:Time
     in_subset:
       - subset A
       - subset B
