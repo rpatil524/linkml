@@ -37,6 +37,8 @@ prefixes:
   skos: http://www.w3.org/2004/02/skos/core#
   bizcodes: https://example.org/bizcodes/
   schema: http://schema.org/
+  bioregistry: https://bioregistry.io/
+  LOINC: https://loinc.org/
 default_prefix: ks
 default_range: string
 see_also:
@@ -477,3 +479,17 @@ enums:
         description: spiteful
       indifferent:
         description: not overly friendly nor obnoxiously spiteful
+  LeukocyteLoincCodes:
+    description: |-
+      Dynamic enum: LOINC codes reachable from the LP43571-6 leukocyte panel,
+      minus a specific manual-count code.
+    enum_uri: http://hl7.org/fhir/ValueSet/example-intensional
+    include:
+      - reachable_from:
+          source_ontology: bioregistry:loinc
+          source_nodes:
+            - LOINC:LP43571-6
+          is_direct: true
+    minus:
+      - concepts:
+          - LOINC:5932-9

@@ -105,6 +105,13 @@ def test_docgen(kitchen_sink_path, input_path, tmp_path):
         "URI: [ks:KitchenStatus](https://w3id.org/linkml/tests/kitchen_sink/KitchenStatus)",
         after="Enum: KitchenStatus",
     )
+    # regression for #3242 — dynamic enum with include/minus must render without TypeError
+    assert_mdfile_contains(
+        tmp_path / "LeukocyteLoincCodes.md",
+        "## Enumeration Operations",
+        after="Enum: LeukocyteLoincCodes",
+        followed_by=["**Includes:**", "**Excludes:**"],
+    )
     assert_mdfile_contains(
         tmp_path / "SubsetA.md",
         "URI: [SubsetA](SubsetA.md)",
